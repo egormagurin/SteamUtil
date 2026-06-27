@@ -1,0 +1,18 @@
+{
+  "name": "steam-util",
+  "version": "0.1.0",
+  "description": "Steam Utilities - tools for game developers. Starting with an upcoming-games release calendar to find low-competition release dates.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build:data": "node scripts/build-data.mjs",
+    "serve:static": "node scripts/serve-static.mjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

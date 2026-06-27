@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Steam Utilities — Release Calendar</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⛁</span>
+      <div>
+        <h1>Steam Utilities</h1>
+        <p class="tagline">Tools for game developers</p>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-tool="calendar">📅 Release Calendar</button>
+      <button class="tab" disabled title="Coming soon">🏷️ Tag Explorer</button>
+      <button class="tab" disabled title="Coming soon">📊 Wishlist Trends</button>
+    </nav>
+  </header>
+
+  <main id="view-calendar" class="view">
+    <section class="intro">
+      <h2>Find the best day to launch your game</h2>
+      <p>
+        Every upcoming Steam game, plotted by release date. Cooler days = fewer
+        games and fewer <strong>high-wishlist</strong> competitors fighting for
+        the spotlight. Aim for a cool day.
+      </p>
+    </section>
+
+    <div class="controls">
+      <label>
+        Window
+        <select id="window">
+          <option value="3">Next 3 months</option>
+          <option value="6" selected>Next 6 months</option>
+          <option value="12">Next 12 months</option>
+          <option value="18">Next 18 months</option>
+        </select>
+      </label>
+      <label>
+        "High-wishlist" = top
+        <select id="threshold">
+          <option value="100">100</option>
+          <option value="300" selected>300</option>
+          <option value="500">500</option>
+          <option value="1000">1000</option>
+        </select>
+        ranked
+      </label>
+      <label>
+        Fetch depth
+        <select id="depth">
+          <option value="2000" selected>2,000 games</option>
+          <option value="5000">5,000 games</option>
+          <option value="10000">10,000 games</option>
+        </select>
+      </label>
+      <button id="refresh" class="btn">↻ Refresh data</button>
+      <span id="freshness" class="freshness"></span>
+    </div>
+
+    <div id="progress" class="progress hidden">
+      <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+      <span id="progress-label">Fetching upcoming games from Steam…</span>
+    </div>
+
+    <div class="layout">
+      <div id="calendar" class="calendar"></div>
+
+      <aside class="sidebar">
+        <div class="card legend-card">
+          <h3>Competition heat</h3>
+          <div class="legend">
+            <span class="legend-swatch heat-0"></span><span>None</span>
+            <span class="legend-swatch heat-1"></span><span>Light</span>
+            <span class="legend-swatch heat-2"></span><span>Medium</span>
+            <span class="legend-swatch heat-3"></span><span>Heavy</span>
+            <span class="legend-swatch heat-4"></span><span>Brutal</span>
+          </div>
+          <p class="legend-note">
+            Heat weights high-wishlist games heavily. A red dot ●
+            marks days with top-ranked releases.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>🟢 Best low-competition days</h3>
+          <ol id="best-days" class="best-days"></ol>
+        </div>
+
+        <div id="day-detail" class="card hidden">
+          <h3 id="day-detail-title">Day</h3>
+          <ul id="day-detail-list" class="game-list"></ul>
+        </div>
+
+        <div class="card">
+          <h3>Undated / coarse releases</h3>
+          <p class="legend-note">
+            Many games only list a month, quarter, or year. They aren't on the
+            calendar but still compete. Counts by period:
+          </p>
+          <ul id="coarse-list" class="coarse-list"></ul>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="foot">
+      <span id="stats"></span>
+      <span class="disclaimer">
+        Competition is ranked by Steam's "Popular Upcoming" order (wishlist-driven).
+        Steam does not publish exact wishlist counts.
+      </span>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

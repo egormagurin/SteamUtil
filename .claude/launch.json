@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "steam-util",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3000
+    },
+    {
+      "name": "steam-util-static",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "serve:static"],
+      "port": 4000
+    }
+  ]
+}
