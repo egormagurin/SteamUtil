@@ -6,6 +6,7 @@ import {
   isFresh,
   fetchUpcoming,
   enrichFollowers,
+  fetchTagDictionary,
   writeCache,
   readPartial,
   writePartial,
@@ -78,6 +79,8 @@ async function startRefresh(depth, followersTop = 60) {
       data.followersTop = followersTop;
       data.followersEnriched = data.games.filter((g) => g.followers != null).length;
     }
+
+    data.tagNames = await fetchTagDictionary();
 
     writeCache(data);
     clearPartial(); // full fetch succeeded — partial no longer needed

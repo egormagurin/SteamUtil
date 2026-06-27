@@ -1,8 +1,13 @@
 # Steam Utilities
 
-A growing set of tools for game developers. The first tool is a **Release
-Calendar**: every upcoming Steam game plotted by release date, so you can find a
-launch day with **fewer games** and **fewer high-wishlist competitors**.
+A growing set of tools for game developers:
+
+- **Release Calendar** — every upcoming Steam game plotted by release date, so
+  you can find a launch day with **fewer games** and **fewer high-wishlist
+  competitors**.
+- **Tag Explorer** — competition broken down by Steam tag/genre: which genres
+  are most crowded with upcoming releases, when the crowd lands (monthly
+  histogram), and the biggest competitors in each genre.
 
 **Live:** <https://egormagurin.github.io/SteamUtil/> (static build, auto-updated daily)
 
@@ -110,6 +115,6 @@ API (the **Refresh** button is disabled and shows "Auto-updated daily").
 
 ## Ideas for next tools
 
-- Follower-count enrichment for top games (the best free wishlist correlate).
-- Tag Explorer: competition by genre/tag for a given window.
-- Per-weekday and per-month historical release-volume trends.
+- Wishlist Trends: per-weekday and per-month historical release-volume trends.
+- Estimated wishlists shown directly on calendar day cells.
+- Combine the calendar + tag filter (low-competition days *within* your genre).

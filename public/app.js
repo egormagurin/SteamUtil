@@ -22,6 +22,11 @@ const state = {
   windowMonths: 6,
   multiplier: 10,
   selectedDate: null,
+  // Tag Explorer
+  tagNames: {},
+  selectedTag: null,
+  tagWindowMonths: 12,
+  tagThreshold: 300,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -33,7 +38,8 @@ function applyDataset(data) {
   state.fetchedAt = data.fetchedAt;
   state.totalAvailable = data.totalAvailable;
   state.partial = !!data.partial;
-  render();
+  state.tagNames = data.tagNames || {};
+  renderActiveView();
 }
 
 async function loadData() {
@@ -169,14 +175,14 @@ function fmtReleaseShort(g) {
   return `${y}`;
 }
 
-// Window bounds shared by best-days and competitors.
-function windowBounds() {
+// Window bounds shared by best-days, competitors, and the tag explorer.
+function windowBounds(months = state.windowMonths) {
   const t = todayParts();
   const pad = (n) => String(n).padStart(2, '0');
   const todayIso = `${t.y}-${pad(t.m + 1)}-${pad(t.day)}`;
   const monthStartIso = `${t.y}-${pad(t.m + 1)}-01`;
-  const endY = t.y + Math.floor((t.m + state.windowMonths) / 12);
-  const endM = (t.m + state.windowMonths) % 12;
+  const endY = t.y + Math.floor((t.m + months) / 12);
+  const endM = (t.m + months) % 12;
   const endIso = `${endY}-${pad(endM + 1)}-01`;
   return { todayIso, monthStartIso, endIso };
 }
@@ -476,11 +482,178 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// ---- Tag Explorer -----------------------------------------------------------
+
+// tagId -> { id, name, total, window, popular } across all upcoming games.
+function aggregateTags() {
+  const { monthStartIso, endIso } = windowBounds(state.tagWindowMonths);
+  const stats = new Map();
+  for (const g of state.games) {
+    if (!g.tags || !g.tags.length) continue;
+    const inWin = g.releaseDate && g.releaseDate >= monthStartIso && g.releaseDate < endIso;
+    const isPop = g.rank <= state.tagThreshold;
+    for (const id of g.tags) {
+      let s = stats.get(id);
+      if (!s) { s = { id, name: state.tagNames[id] || `#${id}`, total: 0, window: 0, popular: 0 }; stats.set(id, s); }
+      s.total += 1;
+      if (inWin) {
+        s.window += 1;
+        if (isPop) s.popular += 1;
+      }
+    }
+  }
+  return stats;
+}
+
+function renderTagsView() {
+  state.tagWindowMonths = +$('#tag-window').value;
+  state.tagThreshold = +$('#tag-threshold').value;
+
+  const stats = aggregateTags();
+  const sorted = [...stats.values()].sort((a, b) => b.window - a.window || b.total - a.total);
+
+  // searchable datalist of all tag names
+  $('#tag-options').innerHTML = sorted
+    .map((s) => `<option value="${escapeHtml(s.name)}"></option>`).join('');
+
+  renderTagLeaderboard(sorted);
+  renderTagDetail();
+
+  const ago = state.fetchedAt
+    ? `Data ${Math.round((Date.now() - new Date(state.fetchedAt).getTime()) / 60000)} min old` : '';
+  $('#tag-freshness').textContent = ago + (state.staticMode ? ' · auto-updates daily' : '');
+  $('#tag-stats').textContent = `${stats.size.toLocaleString()} tags across ${state.games.length.toLocaleString()} upcoming games`;
+}
+
+function renderTagLeaderboard(sorted) {
+  const board = $('#tag-leaderboard');
+  const top = sorted.filter((s) => s.window > 0).slice(0, 40);
+  if (top.length === 0) { board.innerHTML = '<p class="legend-note">No tagged games in this window.</p>'; return; }
+  const max = top[0].window || 1;
+  board.innerHTML = top.map((s) => {
+    const w = Math.max(4, Math.round((s.window / max) * 120));
+    const hot = s.popular > 0 ? `<span class="tr-hot">🔥 ${s.popular}</span>` : '<span class="tr-hot"></span>';
+    return `<div class="tag-row${s.id === state.selectedTag ? ' selected' : ''}" data-tag="${s.id}">
+      <span class="tr-name">${escapeHtml(s.name)}</span>
+      ${hot}
+      <span class="tr-counts"><span class="tr-bar" style="width:${w}px"></span> <b>${s.window}</b> in window</span>
+    </div>`;
+  }).join('');
+  board.querySelectorAll('.tag-row[data-tag]').forEach((row) => {
+    row.addEventListener('click', () => selectTag(+row.dataset.tag));
+  });
+}
+
+function selectTag(id) {
+  state.selectedTag = id;
+  $('#tag-search').value = state.tagNames[id] || '';
+  renderTagsView();
+}
+
+function renderTagDetail() {
+  const id = state.selectedTag;
+  const title = $('#tag-detail-title');
+  const summary = $('#tag-detail-summary');
+  const hist = $('#tag-histogram');
+  const comps = $('#tag-competitors');
+
+  if (id == null) {
+    title.textContent = 'Pick a genre';
+    summary.textContent = 'Choose a tag above or click a row to see when its releases cluster and who the big competitors are.';
+    hist.innerHTML = '';
+    comps.innerHTML = '';
+    return;
+  }
+
+  const name = state.tagNames[id] || `#${id}`;
+  const { monthStartIso, endIso } = windowBounds(state.tagWindowMonths);
+  const games = state.games.filter((g) => g.tags && g.tags.includes(id));
+  const inWin = games.filter((g) => g.releaseDate && g.releaseDate >= monthStartIso && g.releaseDate < endIso);
+  const popular = inWin.filter((g) => g.rank <= state.tagThreshold).length;
+
+  title.textContent = `${name}`;
+  summary.innerHTML = `<b>${inWin.length}</b> releasing in window · <b>${popular}</b> high-wishlist · ` +
+    `${games.length.toLocaleString()} upcoming total in genre.`;
+
+  // Monthly histogram across the window.
+  const t = todayParts();
+  const months = [];
+  for (let o = 0; o < state.tagWindowMonths; o++) {
+    const y = t.y + Math.floor((t.m + o) / 12);
+    const m = (t.m + o) % 12;
+    months.push({ y, m, total: 0, popular: 0 });
+  }
+  for (const g of inWin) {
+    const { y, m } = isoToParts(g.releaseDate);
+    const bucket = months.find((b) => b.y === y && b.m === m);
+    if (bucket) { bucket.total += 1; if (g.rank <= state.tagThreshold) bucket.popular += 1; }
+  }
+  const maxM = Math.max(1, ...months.map((b) => b.total));
+  hist.innerHTML = months.map((b) => {
+    const pct = Math.round((b.total / maxM) * 100);
+    const hotPct = b.total ? Math.round((b.popular / b.total) * 100) : 0;
+    return `<div class="th-row" title="${b.popular} high-wishlist of ${b.total}">
+      <span class="th-label">${MONTH_NAMES[b.m].slice(0, 3)} ${String(b.y).slice(2)}</span>
+      <span class="th-track"><span class="th-fill${hotPct >= 50 ? ' hot' : ''}" style="width:${pct}%"></span></span>
+      <span class="th-val">${b.total}</span>
+    </div>`;
+  }).join('');
+
+  // Biggest competitors in this genre & window (followers first, then rank).
+  const top = inWin
+    .slice()
+    .sort((a, b) => (b.followers || 0) - (a.followers || 0) || a.rank - b.rank)
+    .slice(0, 10);
+  comps.innerHTML = top.map((g) => {
+    const foll = g.followers != null
+      ? `<span class="co-foll">★ ${fmtCount(g.followers)}</span>`
+      : `<span class="co-foll" title="popularity rank">#${g.rank}</span>`;
+    return `<li data-appid="${g.appid}">
+      <span class="co-name">${escapeHtml(g.name)}</span>
+      ${foll}
+      <span class="co-date">${fmtReleaseShort(g)}</span>
+    </li>`;
+  }).join('');
+  comps.querySelectorAll('li[data-appid]').forEach((li) => {
+    li.addEventListener('click', () =>
+      window.open(`https://store.steampowered.com/app/${li.dataset.appid}`, '_blank', 'noopener'));
+  });
+}
+
+// ---- View switching ---------------------------------------------------------
+
+function renderActiveView() {
+  if (state.activeView === 'tags') renderTagsView();
+  else render();
+}
+
+function switchView(tool) {
+  state.activeView = tool;
+  document.querySelectorAll('.tab[data-tool]').forEach((b) =>
+    b.classList.toggle('active', b.dataset.tool === tool));
+  $('#view-calendar').classList.toggle('hidden', tool !== 'calendar');
+  $('#view-tags').classList.toggle('hidden', tool !== 'tags');
+  renderActiveView();
+}
+
 // ---- Wiring -----------------------------------------------------------------
+
+state.activeView = 'calendar';
 
 $('#window').addEventListener('change', render);
 $('#threshold').addEventListener('change', render);
 $('#multiplier').addEventListener('change', render);
 $('#refresh').addEventListener('click', refresh);
+
+$('#tag-window').addEventListener('change', renderTagsView);
+$('#tag-threshold').addEventListener('change', renderTagsView);
+$('#tag-search').addEventListener('change', () => {
+  const name = $('#tag-search').value.trim().toLowerCase();
+  const match = Object.entries(state.tagNames).find(([, n]) => n.toLowerCase() === name);
+  if (match) selectTag(+match[0]);
+});
+
+document.querySelectorAll('.tab[data-tool]').forEach((b) =>
+  b.addEventListener('click', () => { if (!b.disabled) switchView(b.dataset.tool); }));
 
 init();

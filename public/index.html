@@ -17,7 +17,7 @@
     </div>
     <nav class="tabs">
       <button class="tab active" data-tool="calendar">📅 Release Calendar</button>
-      <button class="tab" disabled title="Coming soon">🏷️ Tag Explorer</button>
+      <button class="tab" data-tool="tags">🏷️ Tag Explorer</button>
       <button class="tab" disabled title="Coming soon">📊 Wishlist Trends</button>
     </nav>
   </header>
@@ -134,6 +134,75 @@
       <span class="disclaimer">
         Competition is ranked by Steam's "Popular Upcoming" order (wishlist-driven).
         Steam does not publish exact wishlist counts.
+      </span>
+    </footer>
+  </main>
+
+  <main id="view-tags" class="view hidden">
+    <section class="intro">
+      <h2>How crowded is your genre?</h2>
+      <p>
+        Competition broken down by Steam tag. See which genres are saturated with
+        upcoming releases, when the crowd lands, and who the
+        <strong>biggest competitors</strong> are — so you can pick a genre/time
+        with more room to breathe.
+      </p>
+    </section>
+
+    <div class="controls">
+      <label>
+        Genre / tag
+        <input id="tag-search" list="tag-options" placeholder="e.g. RPG, Roguelike…" autocomplete="off" />
+        <datalist id="tag-options"></datalist>
+      </label>
+      <label>
+        Window
+        <select id="tag-window">
+          <option value="6">Next 6 months</option>
+          <option value="12" selected>Next 12 months</option>
+          <option value="18">Next 18 months</option>
+          <option value="24">Next 24 months</option>
+        </select>
+      </label>
+      <label>
+        "High-wishlist" = top
+        <select id="tag-threshold">
+          <option value="100">100</option>
+          <option value="300" selected>300</option>
+          <option value="500">500</option>
+          <option value="1000">1000</option>
+        </select>
+        ranked
+      </label>
+      <span id="tag-freshness" class="freshness"></span>
+    </div>
+
+    <div class="layout">
+      <div class="tag-board card">
+        <h3>Genres by upcoming competition</h3>
+        <p class="legend-note">
+          Click a genre to drill in. Sorted by games releasing in your window;
+          🔥 = high-wishlist competitors.
+        </p>
+        <div id="tag-leaderboard" class="tag-leaderboard"></div>
+      </div>
+
+      <aside class="sidebar">
+        <div id="tag-detail" class="card">
+          <h3 id="tag-detail-title">Pick a genre</h3>
+          <p id="tag-detail-summary" class="detail-summary"></p>
+          <div id="tag-histogram" class="tag-histogram"></div>
+          <h4 class="tag-sub">🔥 Biggest competitors</h4>
+          <ol id="tag-competitors" class="competitors"></ol>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="foot">
+      <span id="tag-stats"></span>
+      <span class="disclaimer">
+        A game is counted under each of its Steam tags, so totals across genres
+        overlap. Tags come from Steam's store data.
       </span>
     </footer>
   </main>

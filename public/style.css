@@ -228,6 +228,46 @@ body {
 .coarse-list li { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 6px; background: var(--bg-dark); border-radius: 4px; }
 .coarse-list .ct-count { color: var(--accent); }
 
+/* ---- Tag Explorer ---- */
+.controls input#tag-search {
+  background: var(--bg-dark);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 13px;
+  min-width: 180px;
+}
+.tag-board h3 { margin: 0 0 4px; font-size: 14px; color: #fff; }
+.tag-leaderboard { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+.tag-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--bg-dark);
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.tag-row:hover { border-color: var(--accent); }
+.tag-row.selected { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(102,192,244,.4); }
+.tag-row .tr-name { color: var(--text); font-size: 13px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tag-row .tr-bar { height: 6px; border-radius: 3px; background: var(--accent-2); flex: 0 0 auto; }
+.tag-row .tr-counts { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag-row .tr-counts b { color: #fff; }
+.tag-row .tr-hot { color: var(--bad); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12px; }
+
+.tag-sub { margin: 14px 0 6px; font-size: 13px; color: #fff; }
+.tag-histogram { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.th-row { display: grid; grid-template-columns: 64px 1fr 34px; align-items: center; gap: 8px; font-size: 11px; }
+.th-row .th-label { color: var(--text-dim); }
+.th-row .th-track { background: var(--bg-dark); border-radius: 3px; height: 16px; position: relative; overflow: hidden; }
+.th-row .th-fill { position: absolute; inset: 0 auto 0 0; background: var(--heat-2); border-radius: 3px; }
+.th-row .th-fill.hot { background: var(--bad); }
+.th-row .th-val { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; }
+
 /* ---- Footer ---- */
 .foot { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--text-dim); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .disclaimer { max-width: 60ch; }

@@ -6,14 +6,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchUpcoming, enrichFollowers } from '../src/steam.js';
+import { fetchUpcoming, enrichFollowers, fetchTagDictionary } from '../src/steam.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, '..', 'public', 'data');
 const OUT_FILE = path.join(OUT_DIR, 'upcoming.json');
 
 const depth = Math.min(Math.max(parseInt(process.env.DEPTH, 10) || 3000, 100), 20000);
-const followersTop = Math.min(Math.max(parseInt(process.env.FOLLOWERS_TOP, 10) || 300, 0), 5000);
+// Use nullish handling so FOLLOWERS_TOP=0 genuinely disables enrichment
+// (a plain `|| 300` would treat 0 as "unset" and fall back to the default).
+const ftRaw = parseInt(process.env.FOLLOWERS_TOP, 10);
+const followersTop = Math.min(Math.max(Number.isFinite(ftRaw) ? ftRaw : 300, 0), 5000);
 const concurrency = Math.min(Math.max(parseInt(process.env.FOLLOWERS_CONCURRENCY, 10) || 2, 1), 12);
 const throttleMs = Math.min(Math.max(parseInt(process.env.FOLLOWERS_THROTTLE, 10) || 300, 0), 5000);
 
@@ -27,6 +30,10 @@ const data = await fetchUpcoming(depth, {
     console.warn(`  rate-limited (HTTP ${status ?? 'net'}), waiting ${Math.round(waitMs / 1000)}s (retry ${attempt + 1})`);
   },
 });
+
+console.log('Fetching tag dictionary…');
+data.tagNames = await fetchTagDictionary();
+console.log(`  ${Object.keys(data.tagNames).length} tags`);
 
 if (followersTop > 0) {
   console.log(`Enriching top ${followersTop.toLocaleString()} games with follower counts…`);

@@ -343,6 +343,25 @@ export async function enrichFollowers(
   return games;
 }
 
+// ---- Tag dictionary ---------------------------------------------------------
+// Game rows carry numeric tag IDs only; this maps id -> human name so the Tag
+// Explorer can group by genre. One request returns all ~430 store tags.
+export async function fetchTagDictionary() {
+  try {
+    const res = await fetchWithTimeout(
+      'https://store.steampowered.com/tagdata/populartags/english',
+      { headers: { 'User-Agent': 'SteamUtil/0.1', Accept: 'application/json' } },
+    );
+    if (!res.ok) return {};
+    const arr = await res.json();
+    const map = {};
+    for (const t of arr) if (t && t.tagid != null) map[t.tagid] = t.name;
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export function readCache() {
   try {
     const raw = fs.readFileSync(CACHE_FILE, 'utf8');
