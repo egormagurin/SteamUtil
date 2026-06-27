@@ -4,6 +4,8 @@ A growing set of tools for game developers. The first tool is a **Release
 Calendar**: every upcoming Steam game plotted by release date, so you can find a
 launch day with **fewer games** and **fewer high-wishlist competitors**.
 
+**Live:** <https://egormagurin.github.io/SteamUtil/> (static build, auto-updated daily)
+
 ## Run it
 
 ```bash
