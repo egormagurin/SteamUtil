@@ -32,6 +32,8 @@
       </p>
     </section>
 
+    <div id="updated-banner" class="updated-banner hidden"></div>
+
     <div class="controls">
       <label>
         Window
@@ -51,6 +53,14 @@
           <option value="1000">1000</option>
         </select>
         ranked
+      </label>
+      <label>
+        Wishlists ≈ followers ×
+        <select id="multiplier">
+          <option value="7">7</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+        </select>
       </label>
       <label>
         Fetch depth
@@ -93,8 +103,18 @@
           <ol id="best-days" class="best-days"></ol>
         </div>
 
+        <div id="competitors-card" class="card">
+          <h3>🔥 Biggest competitors in window</h3>
+          <p class="legend-note">
+            Most-followed upcoming games landing in your window. Followers are a
+            public wishlist proxy — avoid launching beside these.
+          </p>
+          <ol id="competitors" class="competitors"></ol>
+        </div>
+
         <div id="day-detail" class="card hidden">
           <h3 id="day-detail-title">Day</h3>
+          <p id="day-detail-summary" class="detail-summary hidden"></p>
           <ul id="day-detail-list" class="game-list"></ul>
         </div>
 

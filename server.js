@@ -5,6 +5,7 @@ import {
   readCache,
   isFresh,
   fetchUpcoming,
+  enrichFollowers,
   writeCache,
   readPartial,
   writePartial,
@@ -21,6 +22,7 @@ const PORT = process.env.PORT || 3000;
 // and let the frontend poll /api/status for a progress bar.
 const job = {
   running: false,
+  phase: null,    // 'games' | 'followers'
   loaded: 0,
   total: 0,
   startedAt: null,
@@ -29,13 +31,14 @@ const job = {
   resumedFrom: 0, // offset we resumed an interrupted fetch from (0 = fresh)
 };
 
-async function startRefresh(depth) {
+async function startRefresh(depth, followersTop = 150) {
   if (job.running) return;
 
   // If a previous fetch was interrupted recently, continue from where it
   // stopped instead of re-downloading everything.
   const resume = getResumeState(depth);
   job.running = true;
+  job.phase = 'games';
   job.resumedFrom = resume ? resume.nextStart : 0;
   job.loaded = resume ? resume.games.length : 0;
   job.total = depth;
@@ -59,6 +62,23 @@ async function startRefresh(depth) {
       // Persist progress after every page so an interruption is never wasted.
       onPage: (state) => writePartial({ ...state, depthRequested: depth }),
     });
+
+    // Phase 2: enrich the top games with follower counts (wishlist proxy).
+    if (followersTop > 0) {
+      job.phase = 'followers';
+      job.loaded = 0;
+      job.total = Math.min(followersTop, data.games.length);
+      await enrichFollowers(data.games, followersTop, {
+        onProgress: (done, total) => { job.loaded = done; job.total = total; },
+        onRetry: (waitMs, status, attempt) => {
+          job.notice = `Community rate-limited us (HTTP ${status ?? 'net'}). ` +
+            `Waiting ${Math.round(waitMs / 1000)}s (retry ${attempt + 1})…`;
+        },
+      });
+      data.followersTop = followersTop;
+      data.followersEnriched = data.games.filter((g) => g.followers != null).length;
+    }
+
     writeCache(data);
     clearPartial(); // full fetch succeeded — partial no longer needed
   } catch (err) {
@@ -66,6 +86,7 @@ async function startRefresh(depth) {
     console.error('Refresh failed (partial progress saved for resume):', err.message);
   } finally {
     job.running = false;
+    job.phase = null;
   }
 }
 
@@ -95,8 +116,11 @@ app.get('/api/data', (req, res) => {
 // Kick off a background refresh.
 app.post('/api/refresh', (req, res) => {
   const depth = Math.min(Math.max(parseInt(req.query.depth, 10) || 2000, 100), 20000);
-  startRefresh(depth);
-  res.json({ started: true, depth, running: job.running });
+  const followers = req.query.followers != null
+    ? Math.min(Math.max(parseInt(req.query.followers, 10) || 0, 0), 5000)
+    : 150;
+  startRefresh(depth, followers);
+  res.json({ started: true, depth, followers, running: job.running });
 });
 
 // Progress for the refresh job.
@@ -105,6 +129,7 @@ app.get('/api/status', (req, res) => {
   const partial = cache ? null : readPartial();
   res.json({
     running: job.running,
+    phase: job.phase,
     loaded: job.loaded,
     total: job.total,
     error: job.error,

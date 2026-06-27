@@ -27,6 +27,7 @@ const CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12h
 
 // Retry/backoff for HTTP 429 (rate limit) and transient 5xx.
 const MAX_RETRIES = 6;
+const REQUEST_TIMEOUT_MS = 15000;   // abort a stalled request (Steam soft-throttles by stalling)
 const BASE_BACKOFF_MS = 2000;
 const MAX_BACKOFF_MS = 45000;
 
@@ -36,6 +37,18 @@ const MONTHS = {
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// fetch() with an abort timeout, so a stalled connection can't hang us forever.
+// Throws (AbortError) on timeout — callers treat that like a transient error.
+async function fetchWithTimeout(url, opts = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function pad(n) {
   return String(n).padStart(2, '0');
@@ -185,9 +198,9 @@ async function fetchPage(start, onRetry) {
   for (let attempt = 0; ; attempt++) {
     let res;
     try {
-      res = await fetch(url, { headers });
+      res = await fetchWithTimeout(url, { headers });
     } catch (err) {
-      // network blip — treat like a transient error
+      // network blip or timeout — treat like a transient error
       if (attempt >= MAX_RETRIES) throw err;
       await backoff(attempt, null, onRetry, 0, err.message);
       continue;
@@ -254,6 +267,80 @@ export async function fetchUpcoming(depth = DEFAULT_DEPTH, opts = {}) {
     complete: true,   // reached target depth or exhausted the list cleanly
     exhausted,
   };
+}
+
+// ---- Follower counts (wishlist proxy) ---------------------------------------
+// Steam doesn't publish wishlist counts, but a game's community-group member
+// count (its "followers") is public and correlates with wishlists. It's exposed
+// as XML at /games/<appid>/memberslistxml. One request returns the full count.
+
+const COMMUNITY_BASE = 'https://steamcommunity.com/games';
+const FOLLOWER_THROTTLE_MS = 300;
+const FOLLOWER_TIMEOUT_MS = 10000;
+const FOLLOWER_MAX_RETRIES = 2; // best-effort: fail fast rather than hang the batch
+
+// Returns the follower count for an appid, or null if it has no group / fails.
+// Deliberately gives up quickly: enrichment is best-effort and must keep moving.
+export async function fetchFollowers(appid, onRetry) {
+  const url = `${COMMUNITY_BASE}/${appid}/memberslistxml/?xml=1`;
+  const headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+      '(KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    Accept: 'text/xml,application/xml,*/*',
+  };
+  for (let attempt = 0; ; attempt++) {
+    let res;
+    try {
+      res = await fetchWithTimeout(url, { headers }, FOLLOWER_TIMEOUT_MS);
+    } catch {
+      if (attempt >= FOLLOWER_MAX_RETRIES) return null; // timeout/network — give up
+      await sleep(1000 * (attempt + 1));
+      continue;
+    }
+    if (res.ok) {
+      const xml = await res.text();
+      const m = xml.match(/<memberCount>(\d+)<\/memberCount>/);
+      return m ? parseInt(m[1], 10) : null;
+    }
+    const transient = res.status === 429 || res.status >= 500;
+    if (!transient || attempt >= FOLLOWER_MAX_RETRIES) return null;
+    const ra = parseInt(res.headers.get('retry-after'), 10);
+    const wait = Number.isFinite(ra) ? ra * 1000 : 1500 * (attempt + 1);
+    if (onRetry) onRetry(wait, res.status, attempt, 'followers');
+    await sleep(wait);
+  }
+}
+
+// Enrich the top `topN` games (by their array order = popularity rank) with a
+// `.followers` field, in place. Failures are skipped, not fatal.
+// Steam soft-throttles by stalling connections, so requests are run with a small
+// concurrency pool — stalls overlap instead of stacking up, keeping wall-clock
+// reasonable without hammering the endpoint.
+export async function enrichFollowers(
+  games,
+  topN,
+  { onProgress, onRetry, concurrency = 2, throttleMs = FOLLOWER_THROTTLE_MS } = {},
+) {
+  const targets = games.slice(0, Math.min(topN, games.length));
+  let next = 0;
+  let done = 0;
+
+  async function worker() {
+    while (true) {
+      const i = next++;
+      if (i >= targets.length) break;
+      const followers = await fetchFollowers(targets[i].appid, onRetry);
+      if (followers != null) targets[i].followers = followers;
+      done += 1;
+      if (onProgress) onProgress(done, targets.length);
+      await sleep(throttleMs); // pacing to stay under Steam's per-IP rate limit
+    }
+  }
+
+  const pool = Math.max(1, Math.min(concurrency, targets.length));
+  await Promise.all(Array.from({ length: pool }, () => worker()));
+  return games;
 }
 
 export function readCache() {

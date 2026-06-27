@@ -20,6 +20,7 @@ const state = {
   staticMode: false,
   threshold: 300,
   windowMonths: 6,
+  multiplier: 10,
   selectedDate: null,
 };
 
@@ -84,9 +85,12 @@ async function pollStatusUntilDone() {
     if (st.running) {
       const pct = st.total ? Math.round((st.loaded / st.total) * 100) : 0;
       fill.style.width = `${pct}%`;
+      const counts = `${st.loaded.toLocaleString()} / ${st.total.toLocaleString()}`;
       label.textContent = st.notice
-        ? `⏳ ${st.notice} (${st.loaded.toLocaleString()} / ${st.total.toLocaleString()} loaded)`
-        : `Fetching upcoming games from Steam… ${st.loaded.toLocaleString()} / ${st.total.toLocaleString()}`;
+        ? `⏳ ${st.notice} (${counts})`
+        : st.phase === 'followers'
+          ? `Fetching follower counts (wishlist proxy)… ${counts}`
+          : `Fetching upcoming games from Steam… ${counts}`;
     } else if (st.hasData) {
       fill.style.width = '100%';
       progress.classList.add('hidden');
@@ -147,6 +151,36 @@ function fmtPrice(cents) {
   return '$' + (cents / 100).toFixed(2);
 }
 
+// Compact number: 54554 -> "54.5k", 1005575 -> "1M".
+function fmtCount(n) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e4 ? 0 : 1) + 'k';
+  return String(n);
+}
+
+// Short release label honoring precision: "Aug 7", "Aug 2026", "Q3 2026", "2026".
+function fmtReleaseShort(g) {
+  if (!g.releaseDate) return 'TBA';
+  const { y, m, d } = isoToParts(g.releaseDate);
+  if (g.datePrecision === 'day') return `${MONTH_NAMES[m].slice(0, 3)} ${d}`;
+  if (g.datePrecision === 'month') return `${MONTH_NAMES[m].slice(0, 3)} ${y}`;
+  if (g.datePrecision === 'quarter') return `Q${Math.floor(m / 3) + 1} ${y}`;
+  return `${y}`;
+}
+
+// Window bounds shared by best-days and competitors.
+function windowBounds() {
+  const t = todayParts();
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayIso = `${t.y}-${pad(t.m + 1)}-${pad(t.day)}`;
+  const monthStartIso = `${t.y}-${pad(t.m + 1)}-01`;
+  const endY = t.y + Math.floor((t.m + state.windowMonths) / 12);
+  const endM = (t.m + state.windowMonths) % 12;
+  const endIso = `${endY}-${pad(endM + 1)}-01`;
+  return { todayIso, monthStartIso, endIso };
+}
+
 // ---- Aggregation ------------------------------------------------------------
 
 // Build a map of ISO date -> { total, popular, games[] } for day-precise games.
@@ -204,13 +238,65 @@ function aggregateCoarse() {
 function render() {
   state.threshold = +$('#threshold').value;
   state.windowMonths = +$('#window').value;
+  state.multiplier = +$('#multiplier').value;
 
   const byDay = aggregateByDay();
+  renderBanner();
   renderCalendar(byDay);
   renderBestDays(byDay);
+  renderCompetitors();
+  renderDayDetail(byDay);
   renderCoarse();
   renderStats(byDay);
   renderFreshness();
+}
+
+function renderBanner() {
+  const b = $('#updated-banner');
+  if (!state.fetchedAt) { b.classList.add('hidden'); return; }
+  const d = new Date(state.fetchedAt);
+  const abs = d.toLocaleString(undefined, {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  const rel = mins < 1 ? 'just now'
+    : mins < 60 ? `${mins} min ago`
+    : mins < 1440 ? `${Math.round(mins / 60)} h ago`
+    : `${Math.round(mins / 1440)} d ago`;
+  const tail = state.staticMode ? ' · auto-updates daily via GitHub Actions' : '';
+  b.classList.remove('hidden');
+  b.innerHTML = `<span class="ub-dot">●</span> <span>Data last updated <strong>${abs}</strong></span>` +
+    `<span class="ub-rel">(${rel})${tail}</span>`;
+}
+
+// Most-followed upcoming games that land within the selected window.
+function renderCompetitors() {
+  const card = $('#competitors-card');
+  const ol = $('#competitors');
+  const { monthStartIso, endIso } = windowBounds();
+  const list = state.games
+    .filter((g) => g.followers != null && g.releaseDate &&
+      g.releaseDate >= monthStartIso && g.releaseDate < endIso)
+    .sort((a, b) => b.followers - a.followers)
+    .slice(0, 12);
+
+  if (list.length === 0) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  ol.innerHTML = list.map((g) => {
+    const wl = fmtCount(Math.round(g.followers * state.multiplier));
+    return `<li data-appid="${g.appid}" title="≈ ${wl} est. wishlists (followers × ${state.multiplier})">
+      <span class="co-name">${escapeHtml(g.name)}</span>
+      <span class="co-foll">★ ${fmtCount(g.followers)}</span>
+      <span class="co-date">${fmtReleaseShort(g)}</span>
+    </li>`;
+  }).join('');
+  ol.querySelectorAll('li[data-appid]').forEach((li) => {
+    li.addEventListener('click', () =>
+      window.open(`https://store.steampowered.com/app/${li.dataset.appid}`, '_blank', 'noopener'));
+  });
 }
 
 function renderCalendar(byDay) {
@@ -275,7 +361,7 @@ function renderMonth(year, month, byDay, todayIso) {
       inner += `<div class="day-count">${entry.total}</div>`;
       inner += `<div class="day-label">game${entry.total === 1 ? '' : 's'}</div>`;
       if (entry.popular > 0) inner += `<div class="day-pop">${entry.popular}</div>`;
-      cell.addEventListener('click', () => selectDay(iso, entry));
+      cell.addEventListener('click', () => selectDay(iso));
     }
     cell.innerHTML = inner;
     days.appendChild(cell);
@@ -285,29 +371,52 @@ function renderMonth(year, month, byDay, todayIso) {
   return wrap;
 }
 
-function selectDay(iso, entry) {
+function selectDay(iso) {
   state.selectedDate = iso;
+  render(); // render() draws the detail panel for the selected day
+}
+
+// Draw the day-detail panel for state.selectedDate (no-op if none / not in view).
+function renderDayDetail(byDay) {
+  const iso = state.selectedDate;
+  const detail = $('#day-detail');
+  if (!iso || !byDay.has(iso)) { detail.classList.add('hidden'); return; }
+  const entry = byDay.get(iso);
   const { y, m, d } = isoToParts(iso);
-  $('#day-detail').classList.remove('hidden');
+  detail.classList.remove('hidden');
   $('#day-detail-title').textContent =
     `${MONTH_NAMES[m]} ${d}, ${y} — ${entry.total} game${entry.total === 1 ? '' : 's'}`;
+
+  // Day-level wishlist estimate from games we have follower data for.
+  const withFoll = entry.games.filter((g) => g.followers != null);
+  const dayFollowers = withFoll.reduce((s, g) => s + g.followers, 0);
+  const summary = $('#day-detail-summary');
+  if (withFoll.length > 0) {
+    summary.classList.remove('hidden');
+    summary.innerHTML = `Top-game followers this day: <b>${fmtCount(dayFollowers)}</b> ` +
+      `→ ≈ <b>${fmtCount(Math.round(dayFollowers * state.multiplier))}</b> est. wishlists ` +
+      `(${withFoll.length}/${entry.total} games measured).`;
+  } else {
+    summary.classList.add('hidden');
+  }
+
   $('#day-detail-list').innerHTML = entry.games.map((g) => {
     const hot = g.rank <= state.threshold ? ' hot' : '';
+    const foll = g.followers != null
+      ? `<span class="game-foll" title="Community followers — a public wishlist proxy">★ ${fmtCount(g.followers)} <span class="gf-wish">≈${fmtCount(Math.round(g.followers * state.multiplier))} wl</span></span>`
+      : '';
     return `<li>
-      <a href="https://store.steampowered.com/app/${g.appid}" target="_blank" rel="noopener">${escapeHtml(g.name)}</a>
-      <span class="game-rank${hot}" title="Popularity rank (lower = more wishlisted)">#${g.rank.toLocaleString()}</span>
-      <span class="game-price">${fmtPrice(g.priceCents)}</span>
+      <span class="game-main">
+        <a href="https://store.steampowered.com/app/${g.appid}" target="_blank" rel="noopener">${escapeHtml(g.name)}</a>
+        <span class="game-sub"><span class="game-rank${hot}" title="Popularity rank (lower = more wishlisted)">#${g.rank.toLocaleString()}</span> · ${fmtPrice(g.priceCents)}</span>
+      </span>
+      ${foll}
     </li>`;
   }).join('');
-  render(); // re-render applies the .selected highlight to the chosen cell
 }
 
 function renderBestDays(byDay) {
-  const t = todayParts();
-  const todayIso = `${t.y}-${String(t.m + 1).padStart(2, '0')}-${String(t.day).padStart(2, '0')}`;
-  const endY = t.y + Math.floor((t.m + state.windowMonths) / 12);
-  const endM = (t.m + state.windowMonths) % 12;
-  const endIso = `${endY}-${String(endM + 1).padStart(2, '0')}-01`;
+  const { todayIso, endIso } = windowBounds();
 
   const candidates = [...byDay.entries()]
     .filter(([iso]) => iso >= todayIso && iso < endIso)
@@ -329,8 +438,7 @@ function renderBestDays(byDay) {
   }).join('');
   ol.querySelectorAll('li[data-iso]').forEach((li) => {
     li.addEventListener('click', () => {
-      const e = byDay.get(li.dataset.iso);
-      if (e) selectDay(li.dataset.iso, e);
+      if (byDay.has(li.dataset.iso)) selectDay(li.dataset.iso);
     });
   });
 }
@@ -372,6 +480,7 @@ function escapeHtml(s) {
 
 $('#window').addEventListener('change', render);
 $('#threshold').addEventListener('change', render);
+$('#multiplier').addEventListener('change', render);
 $('#refresh').addEventListener('click', refresh);
 
 init();

@@ -24,10 +24,17 @@ that cache.
   (Games category only). This list is ordered by Steam's popularity ranking,
   which is driven by wishlist activity.
 - **The wishlist proxy.** Steam does **not** publish exact wishlist counts
-  anywhere public. But a game's *rank* in "Popular Upcoming" is a direct
-  free proxy: rank #1 is the most-wishlisted upcoming game. We capture that
-  rank for every game. A day with several top-ranked releases is a crowded,
-  high-wishlist day to avoid.
+  anywhere public. Two free proxies are used instead:
+  - **Popularity rank** — a game's *rank* in "Popular Upcoming" (rank #1 is the
+    most-wishlisted upcoming game). Captured for every game.
+  - **Follower counts** — a game's community-group member count
+    (`steamcommunity.com/games/<appid>/memberslistxml`) is public and tracks
+    wishlists closely. The top `FOLLOWERS_TOP` games (by rank) are enriched with
+    this, shown as `★ followers` plus a rough **wishlist estimate**
+    (`followers × multiplier`, multiplier adjustable in the UI, default ×10).
+    The follower→wishlist ratio varies a lot per game, so the estimate is shown
+    as an "≈" guide, never a hard number. The **Biggest competitors** panel
+    ranks upcoming games in your window by followers.
 - **Competition heat.** Each calendar day is colored by an index that weighs
   high-wishlist games (top-N rank, configurable) more heavily than small ones:
   `index = totalGames + highWishlistGames × 4`. Cooler = better.
@@ -78,6 +85,9 @@ API (the **Refresh** button is disabled and shows "Auto-updated daily").
   runs on every push to `main`, **daily at ~06:17 UTC** (refreshing the data),
   and on manual dispatch. It auto-enables Pages on first run.
 - **Data size:** controlled by the `DEPTH` env in the workflow (default 3,000).
+- **Follower enrichment:** `FOLLOWERS_TOP` env (default 300) — how many
+  top-ranked games get follower counts. Each is one extra request, so this is
+  the main driver of build time.
 - **Preview the static build locally:**
 
   ```bash
@@ -89,11 +99,11 @@ API (the **Refresh** button is disabled and shows "Auto-updated daily").
 
 ## API
 
-| Method | Route                  | Purpose                                  |
-|--------|------------------------|------------------------------------------|
-| GET    | `/api/data`            | Current cached dataset                   |
-| POST   | `/api/refresh?depth=N` | Start a background fetch (100–20000)      |
-| GET    | `/api/status`          | Fetch progress + cache freshness         |
+| Method | Route                              | Purpose                                       |
+|--------|------------------------------------|-----------------------------------------------|
+| GET    | `/api/data`                        | Current cached dataset                        |
+| POST   | `/api/refresh?depth=N&followers=M` | Start a background fetch (games + followers)   |
+| GET    | `/api/status`                      | Progress (incl. `phase`) + cache freshness    |
 
 ## Ideas for next tools
 
