@@ -2,4 +2,6 @@ node_modules/
 data/*.json
 data/*.log
 public/data/
+.claude/*.lock
+.claude/scheduled_tasks.json
 .DS_Store

@@ -35,10 +35,10 @@ jobs:
       - name: Fetch Steam data
         run: node scripts/build-data.mjs
         env:
-          DEPTH: '3000'              # most-wishlisted upcoming games to include
-          FOLLOWERS_TOP: '250'       # top games to enrich with follower counts
-          FOLLOWERS_CONCURRENCY: '2' # Steam throttles bursts — keep this low
-          FOLLOWERS_THROTTLE: '400'  # ms between follower requests per worker
+          DEPTH: '3000'               # most-wishlisted upcoming games to include
+          FOLLOWERS_TOP: '150'        # top games to enrich with follower counts
+          FOLLOWERS_CONCURRENCY: '1'  # sequential — Steam throttles concurrent bursts hard
+          FOLLOWERS_THROTTLE: '1500'  # ms between follower requests; slow = high coverage
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
