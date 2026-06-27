@@ -36,9 +36,9 @@ jobs:
         run: node scripts/build-data.mjs
         env:
           DEPTH: '3000'               # most-wishlisted upcoming games to include
-          FOLLOWERS_TOP: '150'        # top games to enrich with follower counts
-          FOLLOWERS_CONCURRENCY: '1'  # sequential — Steam throttles concurrent bursts hard
-          FOLLOWERS_THROTTLE: '1500'  # ms between follower requests; slow = high coverage
+          FOLLOWERS_TOP: '60'         # Steam hard-caps ~60 memberslistxml reqs/IP/window
+          FOLLOWERS_CONCURRENCY: '1'  # sequential — concurrent bursts get throttled harder
+          FOLLOWERS_THROTTLE: '500'   # ms between follower requests (under the cap → no stalls)
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

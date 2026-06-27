@@ -31,7 +31,7 @@ const job = {
   resumedFrom: 0, // offset we resumed an interrupted fetch from (0 = fresh)
 };
 
-async function startRefresh(depth, followersTop = 150) {
+async function startRefresh(depth, followersTop = 60) {
   if (job.running) return;
 
   // If a previous fetch was interrupted recently, continue from where it
@@ -118,7 +118,7 @@ app.post('/api/refresh', (req, res) => {
   const depth = Math.min(Math.max(parseInt(req.query.depth, 10) || 2000, 100), 20000);
   const followers = req.query.followers != null
     ? Math.min(Math.max(parseInt(req.query.followers, 10) || 0, 0), 5000)
-    : 150;
+    : 60;
   startRefresh(depth, followers);
   res.json({ started: true, depth, followers, running: job.running });
 });

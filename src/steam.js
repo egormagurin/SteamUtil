@@ -276,8 +276,8 @@ export async function fetchUpcoming(depth = DEFAULT_DEPTH, opts = {}) {
 
 const COMMUNITY_BASE = 'https://steamcommunity.com/games';
 const FOLLOWER_THROTTLE_MS = 300;
-const FOLLOWER_TIMEOUT_MS = 10000;
-const FOLLOWER_MAX_RETRIES = 2; // best-effort: fail fast rather than hang the batch
+const FOLLOWER_TIMEOUT_MS = 8000;
+const FOLLOWER_MAX_RETRIES = 1; // best-effort: fail fast (Steam caps ~60 requests/IP/window)
 
 // Returns the follower count for an appid, or null if it has no group / fails.
 // Deliberately gives up quickly: enrichment is best-effort and must keep moving.

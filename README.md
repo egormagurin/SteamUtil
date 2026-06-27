@@ -29,12 +29,15 @@ that cache.
     most-wishlisted upcoming game). Captured for every game.
   - **Follower counts** — a game's community-group member count
     (`steamcommunity.com/games/<appid>/memberslistxml`) is public and tracks
-    wishlists closely. The top `FOLLOWERS_TOP` games (by rank) are enriched with
-    this, shown as `★ followers` plus a rough **wishlist estimate**
+    wishlists closely. Shown as `★ followers` plus a rough **wishlist estimate**
     (`followers × multiplier`, multiplier adjustable in the UI, default ×10).
     The follower→wishlist ratio varies a lot per game, so the estimate is shown
     as an "≈" guide, never a hard number. The **Biggest competitors** panel
     ranks upcoming games in your window by followers.
+    - *Coverage note:* Steam hard-caps this endpoint at **~60 requests per IP
+      per window**, so enrichment is limited to the **top ~60 games by
+      popularity** — which are exactly the high-wishlist titles that matter for
+      competition. Beyond that, requests just stall and get dropped.
 - **Competition heat.** Each calendar day is colored by an index that weighs
   high-wishlist games (top-N rank, configurable) more heavily than small ones:
   `index = totalGames + highWishlistGames × 4`. Cooler = better.
@@ -85,9 +88,9 @@ API (the **Refresh** button is disabled and shows "Auto-updated daily").
   runs on every push to `main`, **daily at ~06:17 UTC** (refreshing the data),
   and on manual dispatch. It auto-enables Pages on first run.
 - **Data size:** controlled by the `DEPTH` env in the workflow (default 3,000).
-- **Follower enrichment:** `FOLLOWERS_TOP` env (default 300) — how many
-  top-ranked games get follower counts. Each is one extra request, so this is
-  the main driver of build time.
+- **Follower enrichment:** tuned by `FOLLOWERS_TOP` (default 60, the Steam
+  per-IP cap), `FOLLOWERS_CONCURRENCY` (1), and `FOLLOWERS_THROTTLE` (ms). Each
+  game is one extra request; staying at/under ~60 keeps coverage high.
 - **Preview the static build locally:**
 
   ```bash
