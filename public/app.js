@@ -6,7 +6,7 @@
 //   • Backend mode (local `npm start`): talks to the Express API at api/*,
 //     can trigger live refreshes with a progress bar.
 //   • Static mode (GitHub Pages): no backend, so it loads a pre-built
-//     data/upcoming.json that GitHub Actions refreshes daily.
+//     data/upcoming.json that GitHub Actions refreshes every 3 hours.
 
 const POP_WEIGHT = 4; // how much heavier a high-wishlist game counts vs. a small one
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -69,8 +69,8 @@ function enterStaticMode() {
   state.staticMode = true;
   const refresh = $('#refresh');
   refresh.disabled = true;
-  refresh.textContent = '↻ Auto-updated daily';
-  refresh.title = 'Static GitHub Pages build — data is refreshed daily by GitHub Actions.';
+  refresh.textContent = '↻ Auto-updated every 3h';
+  refresh.title = 'Static GitHub Pages build — data is refreshed every 3 hours by GitHub Actions.';
   const depth = $('#depth');
   depth.disabled = true;
   depth.title = 'Fetch depth is fixed in the static build.';
@@ -269,7 +269,7 @@ function renderBanner() {
     : mins < 60 ? `${mins} min ago`
     : mins < 1440 ? `${Math.round(mins / 60)} h ago`
     : `${Math.round(mins / 1440)} d ago`;
-  const tail = state.staticMode ? ' · auto-updates daily via GitHub Actions' : '';
+  const tail = state.staticMode ? ' · auto-updates every 3h via GitHub Actions' : '';
   b.classList.remove('hidden');
   b.innerHTML = `<span class="ub-dot">●</span> <span>Data last updated <strong>${abs}</strong></span>` +
     `<span class="ub-rel">(${rel})${tail}</span>`;
@@ -474,7 +474,7 @@ function renderFreshness() {
   $('#freshness').textContent = state.partial
     ? `⚠ Partial data (fetch interrupted ${txt}) — Refresh to resume`
     : state.staticMode
-      ? `Data fetched ${txt} · auto-updates daily`
+      ? `Data fetched ${txt} · auto-updates every 3h`
       : `Data fetched ${txt}`;
 }
 
@@ -521,7 +521,7 @@ function renderTagsView() {
 
   const ago = state.fetchedAt
     ? `Data ${Math.round((Date.now() - new Date(state.fetchedAt).getTime()) / 60000)} min old` : '';
-  $('#tag-freshness').textContent = ago + (state.staticMode ? ' · auto-updates daily' : '');
+  $('#tag-freshness').textContent = ago + (state.staticMode ? ' · auto-updates every 3h' : '');
   $('#tag-stats').textContent = `${stats.size.toLocaleString()} tags across ${state.games.length.toLocaleString()} upcoming games`;
 }
 

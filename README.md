@@ -9,7 +9,7 @@ A growing set of tools for game developers:
   are most crowded with upcoming releases, when the crowd lands (monthly
   histogram), and the biggest competitors in each genre.
 
-**Live:** <https://egormagurin.github.io/SteamUtil/> (static build, auto-updated daily)
+**Live:** <https://egormagurin.github.io/SteamUtil/> (static build, auto-updated every 3 hours)
 
 ## Run it
 
@@ -87,11 +87,11 @@ GitHub Pages serves static files only — it can't run the Node backend. So the
 published site uses a **static snapshot**: a GitHub Actions job fetches the
 Steam data, writes `public/data/upcoming.json`, and deploys `public/` to Pages.
 The frontend auto-detects there's no backend and loads that file instead of the
-API (the **Refresh** button is disabled and shows "Auto-updated daily").
+API (the **Refresh** button is disabled and shows "Auto-updated every 3h").
 
 - **Workflow:** [.github/workflows/deploy.yml](.github/workflows/deploy.yml)
-  runs on every push to `main`, **daily at ~06:17 UTC** (refreshing the data),
-  and on manual dispatch. It auto-enables Pages on first run.
+  runs on every push to `main`, **every 3 hours (xx:17 UTC)** to refresh the
+  data, and on manual dispatch. It auto-enables Pages on first run.
 - **Data size:** controlled by the `DEPTH` env in the workflow (default 3,000).
 - **Follower enrichment:** tuned by `FOLLOWERS_TOP` (default 60, the Steam
   per-IP cap), `FOLLOWERS_CONCURRENCY` (1), and `FOLLOWERS_THROTTLE` (ms). Each
